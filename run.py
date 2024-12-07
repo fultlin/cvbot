@@ -168,9 +168,9 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
     if type_ == "view":
         cursor.execute("""
         UPDATE progress
-        SET confirmed = TRUE
+        SET viewed = TRUE, confirmed = TRUE
         WHERE user_id = ? AND step = ?
-        """, (user_id, action))
+        """, (user_id, 'start'))
         conn.commit()
 
         cursor.execute("""
@@ -232,7 +232,6 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
                 lesson = LESSONS[next_lesson]
                 asyncio.create_task(send_reminder(user_id, next_lesson, lesson["reminders"][0], delay=5))
                 
-                print(f"Создаю задачу для напоминания: {action} пользователю {user_id}")
                 if len(lesson["reminders"]) > 1:
                     asyncio.create_task(send_reminder(user_id, next_lesson, LESSONS[next_lesson]["reminders"][1], delay=30))
 
@@ -251,15 +250,22 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
                 
 
 async def send_reminder(user_id: int, step: str, reminder_text: str, delay: int):
-    await asyncio.sleep(delay * 60) 
+    await asyncio.sleep(delay) 
     cursor.execute("""
     SELECT confirmed FROM progress WHERE user_id = ? AND step = ?
     """, (user_id, step))
     result = cursor.fetchone()
 
-    if result and result[0]:  
-        await bot.send_message(user_id, reminder_text)
+    if not result:
+        print(f"Урок {step} для пользователя {user_id} не найден.")
+        return
 
+    if result[0]:
+        print(f"Урок {step} для пользователя {user_id} уже подтвержден.")
+        return
+
+    await bot.send_message(user_id, reminder_text)
+    
 async def main():
     await dp.start_polling(bot)
 
