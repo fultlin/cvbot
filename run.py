@@ -96,7 +96,7 @@ LESSONS = {
     },
     
     "final" : {
-        "text": "Имя, поздравляю с прохождением мини-курса! Ты молодец 🤝🏽\n"
+        "text": "{name}, поздравляю с прохождением мини-курса! Ты молодец 🤝🏽\n"
 "Теперь у тебя есть понимание основ моей стратегии. \n"
 "И я тебе дарю уникальный 🎁 подарок: \n"
 "Карту с пошаговым планом входа в сделку, которую ты видел в мини курсе. Ранее ее стоимость была 100$, сейчас ты можешь забрать ее бесплатно. \n"
@@ -126,7 +126,7 @@ async def cmd_start(message: Message):
         [InlineKeyboardButton(text="Забрать ⬇️", callback_data=CourseCallback(action="lesson_1", type="view").pack())]
     ])
     await message.answer(WELCOME_MESSAGE, reply_markup=markup)
-
+    
 @dp.callback_query(CourseCallback.filter())
 async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallback):
     user_id = call.from_user.id
@@ -164,21 +164,18 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
         conn.commit()
         await call.answer("Спасибо, что подтвердили просмотр!", show_alert=True)
 
-        next_lesson = LESSONS[action].get("next")
-        if next_lesson and next_lesson in LESSONS:
-            lesson = LESSONS[next_lesson]
-            markup = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Смотреть", url=lesson["url"])],
-                [InlineKeyboardButton(text="Я посмотрел", callback_data=CourseCallback(action=next_lesson, type="confirm").pack())]
-            ])
-            await call.message.answer(f"{lesson['text']}", reply_markup=markup)
-    elif action == "final":
-        lesson = LESSONS["final"]
-        markup = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="Получить подарок", callback_data=CourseCallback(action="final_gift", type="claim").pack())],
-            [InlineKeyboardButton(text="Записаться на консультацию", callback_data=CourseCallback(action="final_consult", type="claim").pack())]
-        ])
-        await call.message.answer(lesson['text'].format(name=name))
+        if action == "lesson_3":
+            final_lesson = LESSONS["final"]
+            await call.message.answer(final_lesson['text'].format(name=name))
+        else:
+            next_lesson = LESSONS[action].get("next")
+            if next_lesson and next_lesson in LESSONS:
+                lesson = LESSONS[next_lesson]
+                markup = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="Смотреть", url=lesson["url"])],
+                    [InlineKeyboardButton(text="Я посмотрел", callback_data=CourseCallback(action=next_lesson, type="confirm").pack())]
+                ])
+                await call.message.answer(lesson['text'].format(name=name), reply_markup=markup)
 
 
 async def send_reminder(user_id: int, step: str, reminder_text: str, delay: int):
