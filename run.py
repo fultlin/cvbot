@@ -36,7 +36,7 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS progress (
     user_id INTEGER,
     step TEXT,
-    viewed BOOLEAN DEFAULT FALSE,
+    viewed BOOLEAN DEFAULT true,
     confirmed BOOLEAN DEFAULT FALSE,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, step)
@@ -49,7 +49,9 @@ class CourseCallback(CallbackData, prefix="course"):
     type: str
 
 WELCOME_MESSAGE = "Тебе очень повезло! Всего за 3 урока я пошагово передам тебе свою авторскую стратегию торговли, которую ты с лёгкостью освоишь уже сегодня. Мой метод работает в 70% случаев и его протестировали уже более 300 человек. Они отмечают, что раньше не могли найти точку входа в сделку, но после просмотра этих трёх роликов, они научились грамотно открывать позиции. Ты готов забрать мою стратегию? Жми на кнопку ЗАБРАТЬ ⬇️"
-
+REMIDNER = "Ты решил сдаться, ещё не начав? Не надо так. Смотри курс, пока он ещё доступен. "
+REMIDNER2 = "Скоро закрою доступ, а ты так и не посмотрел курс\n"
+"Не сдавайся на ровном месте. Переходи по кнопке ниже, пока урок не пропал ⤵️"
 LESSONS = {
     "lesson_1": {
         "text": "{name}, первый урок уже доступен, скорее открывай его и смотри до конца. В уроке я разобрал: \n"
@@ -121,11 +123,19 @@ async def cmd_start(message: Message):
     VALUES (?, ?, ?, ?)
     """, (user_id, username, first_name, last_name))
     conn.commit()
+    
+    cursor.execute("""
+    INSERT OR IGNORE INTO progress (user_id, step, viewed)
+    VALUES (?, ?, ?)
+    """, (user_id, 'start', True))
+    conn.commit()
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Забрать ⬇️", callback_data=CourseCallback(action="lesson_1", type="view").pack())]
     ])
     await message.answer(WELCOME_MESSAGE, reply_markup=markup)
+    asyncio.create_task(send_reminder(user_id, 'lesson_1', REMIDNER, delay=5))
+    asyncio.create_task(send_reminder(user_id, 'lesson_1', REMIDNER2, delay=30))
     
 @dp.callback_query(CourseCallback.filter())
 async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallback):
@@ -138,6 +148,13 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
     name = result[0] if result else "Имя"
 
     if type_ == "view":
+        cursor.execute("""
+        UPDATE progress
+        SET confirmed = TRUE
+        WHERE user_id = ? AND step = ?
+        """, (user_id, action))
+        conn.commit()
+
         cursor.execute("""
         INSERT OR IGNORE INTO progress (user_id, step, viewed)
         VALUES (?, ?, ?)
@@ -154,15 +171,23 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
 
             
             asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][0], delay=5))
-            asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][1], delay=30))
+            if (lesson["reminders"] and len(lesson["reminders"]) > 1):
+                asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][1], delay=30))
 
     elif type_ == "confirm":
         cursor.execute("""
         UPDATE progress
-        SET confirmed = TRUE
+        SET viewed = TRUE, confirmed = TRUE
         WHERE user_id = ? AND step = ?
         """, (user_id, action))
         conn.commit()
+
+        cursor.execute("""
+        INSERT OR IGNORE INTO progress (user_id, step, viewed)
+        VALUES (?, ?, ?)
+        """, (user_id, action, True))
+        conn.commit()
+
         await call.answer("Спасибо, что подтвердили просмотр!", show_alert=True)
 
         if action == "lesson_3":
@@ -171,16 +196,22 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
         else:
             next_lesson = LESSONS[action].get("next")
             if next_lesson and next_lesson in LESSONS:
+                # Обновляем запись для текущего урока
+                cursor.execute("""
+                INSERT OR IGNORE INTO progress (user_id, step, viewed)
+                VALUES (?, ?, ?)
+                """, (user_id, next_lesson, True))  # Здесь устанавливаем viewed в False, так как это новый урок.
+                conn.commit()
+
                 lesson = LESSONS[next_lesson]
-                markup = InlineKeyboardMarkup(inline_keyboard=[
+                markup = InlineKeyboardMarkup(inline_keyboard=[  # Подготовка кнопок для следующего урока.
                     [InlineKeyboardButton(text="Смотреть", url=lesson["url"])],
                     [InlineKeyboardButton(text="Я посмотрел", callback_data=CourseCallback(action=next_lesson, type="confirm").pack())]
                 ])
                 await call.message.answer(lesson['text'].format(name=name), reply_markup=markup)
 
-
 async def send_reminder(user_id: int, step: str, reminder_text: str, delay: int):
-    await asyncio.sleep(delay * 60) 
+    await asyncio.sleep(delay) 
     cursor.execute("""
     SELECT confirmed FROM progress WHERE user_id = ? AND step = ?
     """, (user_id, step))
