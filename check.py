@@ -3,7 +3,7 @@ import sqlite3
 conn = sqlite3.connect('analytics.db')
 cursor = conn.cursor()
 
-tables = ['users', 'progress', 'reminders']
+tables = ['users', 'progress']
 
 for table in tables:
     print(f"Содержимое таблицы {table}:")

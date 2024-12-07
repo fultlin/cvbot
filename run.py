@@ -152,8 +152,9 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
             ])
             await call.message.answer(lesson["text"].format(name=name), reply_markup=markup)
 
-            for reminder in lesson["reminders"]:
-                asyncio.create_task(send_reminder(user_id, action, reminder, delay=5))
+            
+            asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][0], delay=5))
+            asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][1], delay=30))
 
     elif type_ == "confirm":
         cursor.execute("""
