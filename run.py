@@ -257,7 +257,7 @@ async def send_reminder(user_id: int, step: str, reminder_text: str, delay: int)
     """, (user_id, step))
     result = cursor.fetchone()
 
-    if result and not result[0]:  
+    if result and result[0]:  
         await bot.send_message(user_id, reminder_text)
 
 async def main():
