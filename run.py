@@ -134,8 +134,9 @@ async def cmd_start(message: Message):
         [InlineKeyboardButton(text="Забрать ⬇️", callback_data=CourseCallback(action="lesson_1", type="view").pack())]
     ])
     await message.answer(WELCOME_MESSAGE, reply_markup=markup)
-    asyncio.create_task(send_reminder(user_id, 'lesson_1', REMIDNER, delay=5))
-    asyncio.create_task(send_reminder(user_id, 'lesson_1', REMIDNER2, delay=30))
+
+    asyncio.create_task(send_reminder(user_id, 'start', REMIDNER, delay=5))
+    asyncio.create_task(send_reminder(user_id, 'start', REMIDNER2, delay=10))
     
 @dp.callback_query(CourseCallback.filter())
 async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallback):
@@ -169,10 +170,9 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
             ])
             await call.message.answer(lesson["text"].format(name=name), reply_markup=markup)
 
-            
             asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][0], delay=5))
             if (lesson["reminders"] and len(lesson["reminders"]) > 1):
-                asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][1], delay=30))
+                asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][1], delay=10))
 
     elif type_ == "confirm":
         cursor.execute("""
@@ -196,19 +196,26 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
         else:
             next_lesson = LESSONS[action].get("next")
             if next_lesson and next_lesson in LESSONS:
-                # Обновляем запись для текущего урока
+                lesson = LESSONS[next_lesson]
+                asyncio.create_task(send_reminder(user_id, next_lesson, lesson["reminders"][0], delay=5))
+                
+                print(f"Создаю задачу для напоминания: {action} пользователю {user_id}")
+                if len(lesson["reminders"]) > 1:
+                    asyncio.create_task(send_reminder(user_id, next_lesson, LESSONS[next_lesson]["reminders"][1], delay=10))
+
                 cursor.execute("""
                 INSERT OR IGNORE INTO progress (user_id, step, viewed)
                 VALUES (?, ?, ?)
-                """, (user_id, next_lesson, True))  # Здесь устанавливаем viewed в False, так как это новый урок.
+                """, (user_id, next_lesson, True))  
                 conn.commit()
 
                 lesson = LESSONS[next_lesson]
-                markup = InlineKeyboardMarkup(inline_keyboard=[  # Подготовка кнопок для следующего урока.
+                markup = InlineKeyboardMarkup(inline_keyboard=[  
                     [InlineKeyboardButton(text="Смотреть", url=lesson["url"])],
                     [InlineKeyboardButton(text="Я посмотрел", callback_data=CourseCallback(action=next_lesson, type="confirm").pack())]
                 ])
                 await call.message.answer(lesson['text'].format(name=name), reply_markup=markup)
+                
 
 async def send_reminder(user_id: int, step: str, reminder_text: str, delay: int):
     await asyncio.sleep(delay) 
