@@ -12,6 +12,16 @@ dp = Dispatcher()
 conn = sqlite3.connect("analytics.db")
 cursor = conn.cursor()
 
+def update_users_table():
+    cursor.execute("PRAGMA table_info(users)")
+    columns = [column[1] for column in cursor.fetchall()]
+    if "current_step" not in columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN current_step TEXT")
+    conn.commit()
+
+update_users_table()
+
+
 def update_progress_table():
     cursor.execute("PRAGMA table_info(progress)")
     columns = [column[1] for column in cursor.fetchall()]
@@ -129,6 +139,13 @@ async def cmd_start(message: Message):
     VALUES (?, ?, ?)
     """, (user_id, 'start', True))
     conn.commit()
+    
+    cursor.execute("""
+    UPDATE users
+    SET current_step = ?
+    WHERE user_id = ?
+    """, ('start', user_id))
+    conn.commit()
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Забрать ⬇️", callback_data=CourseCallback(action="lesson_1", type="view").pack())]
@@ -136,7 +153,7 @@ async def cmd_start(message: Message):
     await message.answer(WELCOME_MESSAGE, reply_markup=markup)
 
     asyncio.create_task(send_reminder(user_id, 'start', REMIDNER, delay=5))
-    asyncio.create_task(send_reminder(user_id, 'start', REMIDNER2, delay=10))
+    asyncio.create_task(send_reminder(user_id, 'start', REMIDNER2, delay=30))
     
 @dp.callback_query(CourseCallback.filter())
 async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallback):
@@ -160,6 +177,13 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
         INSERT OR IGNORE INTO progress (user_id, step, viewed)
         VALUES (?, ?, ?)
         """, (user_id, action, True))
+        conn.commit()
+        
+        cursor.execute("""
+        UPDATE users
+        SET current_step = ?
+        WHERE user_id = ?
+        """, (action, user_id))
         conn.commit()
 
         if action in LESSONS:
@@ -187,6 +211,15 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
         VALUES (?, ?, ?)
         """, (user_id, action, True))
         conn.commit()
+        
+        next_lesson = LESSONS[action].get("next")
+        if next_lesson:
+            cursor.execute("""
+            UPDATE users
+            SET current_step = ?
+            WHERE user_id = ?
+            """, (next_lesson, user_id))
+            conn.commit()
 
         await call.answer("Спасибо, что подтвердили просмотр!", show_alert=True)
 
@@ -201,7 +234,7 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
                 
                 print(f"Создаю задачу для напоминания: {action} пользователю {user_id}")
                 if len(lesson["reminders"]) > 1:
-                    asyncio.create_task(send_reminder(user_id, next_lesson, LESSONS[next_lesson]["reminders"][1], delay=10))
+                    asyncio.create_task(send_reminder(user_id, next_lesson, LESSONS[next_lesson]["reminders"][1], delay=30))
 
                 cursor.execute("""
                 INSERT OR IGNORE INTO progress (user_id, step, viewed)
@@ -218,7 +251,7 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
                 
 
 async def send_reminder(user_id: int, step: str, reminder_text: str, delay: int):
-    await asyncio.sleep(delay) 
+    await asyncio.sleep(delay * 60) 
     cursor.execute("""
     SELECT confirmed FROM progress WHERE user_id = ? AND step = ?
     """, (user_id, step))
