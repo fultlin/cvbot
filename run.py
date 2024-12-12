@@ -70,6 +70,7 @@ LESSONS = {
 "   - Как быть прибыльным на дистанции и жить за счёт рынка. \n"
 "Чем раньше посмотришь урок, тем быстрее перестанешь ошибаться в выборе направления цены, жми кнопку ниже ⤵️",
         "url": "https://example.com/lesson1",
+        "photo": "https://ibb.org.ru/1/qNlolp",
         "reminders": [
             "Все уже смотрят второй урок, присоединяйся! Готов поспорить, большинство ошибок ты совершаешь именно по тем причинам, о которых я говорю во втором уроке. Удели всего 5 минут и твоя торговля изменится.",
             "Спойлер, о котором узнаешь только ты и только потому, что решил сдаться слишком рано У тебя есть возможность получить консультацию от топового трейдера из моей команды. Ты сможешь задать любые вопросы по рынку, но только если полностью пройдешь мини курс. Действуй, второго шанса не будет"
@@ -86,6 +87,7 @@ LESSONS = {
 "И тебе для этого нужны всего 3 шага. "
 "Какие? Смотри второй урок, там все ответы ⤵️ ",
         "url": "https://example.com/lesson2",
+        "photo": "",
         "reminders": [
             "У тебя есть возможность получить консультацию от трейдера, смотри второй урок! Кнопка \"СМОТРЕТЬ\"",
         ],
@@ -99,6 +101,7 @@ LESSONS = {
 "Уверен, у тебя всё получится. Я готов провести тебя за руку до результата. \n"
 "Посмотри третье видео и не забудь забрать подарок. \n",
         "url": "https://example.com/lesson3",
+        "photo": "https://ibb.org.ru/1/qNXqf0",
         "reminders": [
             "Привет, ты тут? Это Саша\n"
             "Решил лично написать, чтобы напомнить про третий урок.\n"
@@ -118,6 +121,7 @@ LESSONS = {
 "Чтобы забрать карту и записаться на консультацию, напиши своему куратору @ слово «хочу» и он вышлет тебе всю информацию. \n"
 "Аккаунт твоего куратора -> @\n"
 "Мы будем рады поделиться с тобой пользой.",
+        "photo": "https://ibb.org.ru/1/qNXNzK"
     }
 }
 
@@ -150,7 +154,7 @@ async def cmd_start(message: Message):
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Забрать ⬇️", callback_data=CourseCallback(action="lesson_1", type="view").pack())]
     ])
-    await message.answer(WELCOME_MESSAGE, reply_markup=markup)
+    await bot.send_photo(chat_id=message.chat.id, photo='https://ibb.org.ru/1/qNlgvm', caption=WELCOME_MESSAGE, reply_markup=markup)
 
     asyncio.create_task(send_reminder(user_id, 'start', REMIDNER, delay=5))
     asyncio.create_task(send_reminder(user_id, 'start', REMIDNER2, delay=30))
@@ -192,7 +196,12 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
                 [InlineKeyboardButton(text="Смотреть", url=lesson["url"])],
                 [InlineKeyboardButton(text="Я посмотрел", callback_data=CourseCallback(action=action, type="confirm").pack())]
             ])
-            await call.message.answer(lesson["text"].format(name=name), reply_markup=markup)
+            await bot.send_photo(
+                chat_id=call.message.chat.id,
+                photo=lesson["photo"],
+                caption=lesson["text"].format(name=name),
+                reply_markup=markup
+            )
 
             asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][0], delay=5))
             if (lesson["reminders"] and len(lesson["reminders"]) > 1):
@@ -225,7 +234,11 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
 
         if action == "lesson_3":
             final_lesson = LESSONS["final"]
-            await call.message.answer(final_lesson['text'].format(name=name))
+            await bot.send_photo(
+                chat_id=call.message.chat.id,
+                photo=final_lesson["photo"],
+                caption=final_lesson["text"].format(name=name)
+            )
         else:
             next_lesson = LESSONS[action].get("next")
             if next_lesson and next_lesson in LESSONS:
@@ -246,7 +259,19 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
                     [InlineKeyboardButton(text="Смотреть", url=lesson["url"])],
                     [InlineKeyboardButton(text="Я посмотрел", callback_data=CourseCallback(action=next_lesson, type="confirm").pack())]
                 ])
-                await call.message.answer(lesson['text'].format(name=name), reply_markup=markup)
+                if lesson["photo"]:
+                    await bot.send_photo(
+                        chat_id=call.message.chat.id,
+                        photo=lesson["photo"],  
+                        caption=lesson['text'].format(name=name),  
+                        reply_markup=markup  
+                    )
+                else:
+                    await bot.send_message(
+                        chat_id=call.message.chat.id,
+                        text=lesson['text'].format(name=name),
+                        reply_markup=markup
+                    )
                 
 
 async def send_reminder(user_id: int, step: str, reminder_text: str, delay: int):
