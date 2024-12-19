@@ -21,6 +21,30 @@ def update_users_table():
 
 update_users_table()
 
+@dp.message(Command(commands=["stat"]))
+async def cmd_stat(message: Message):
+    cursor.execute("SELECT DISTINCT step FROM progress")
+    steps = [row[0] for row in cursor.fetchall()]
+
+    if not steps:
+        await message.answer("Нет данных о шагах.")
+        return
+
+    stat_message = "Статистика по шагам:\n\n"
+    for step in steps:
+        cursor.execute("SELECT COUNT(*) FROM progress WHERE step = ? AND viewed = TRUE", (step,))
+        viewed_count = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM progress WHERE step = ? AND confirmed = TRUE", (step,))
+        confirmed_count = cursor.fetchone()[0]
+
+        stat_message += (
+            f"Шаг {step}:\n"
+            f"  Показан: {viewed_count}\n"
+            f"  Пройден: {confirmed_count}\n\n"
+        )
+
+    await message.answer(stat_message)
 
 def update_progress_table():
     cursor.execute("PRAGMA table_info(progress)")
