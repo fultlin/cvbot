@@ -27,7 +27,7 @@ async def get_user_info():
     user_info = "Содержимое таблицы users:\n"
     for user in users:
         user_info += (
-            f"ID Пользователя: {user[0]},\nЛогин: {user[1]},\nИмя: {user[2]},\nФамилия: {user[3]},\nПрисоединился: {user[4]},\nТекущий шаг: {user[5]}\n------------------\n"
+            f"ID Пользователя: <a href='tg://user?id={user[0]}'>{user[0]}</a>,\nЛогин: {user[1]},\nИмя: {user[2]},\nФамилия: {user[3]},\nПрисоединился: {user[4]},\nТекущий шаг: {user[5]}\n------------------\n"
         )
     return user_info
 
@@ -48,7 +48,7 @@ async def get_project_info():
     progress_info = "Содержимое таблицы progress:\n"
     for entry in progress:
         progress_info += (
-            f"ID Пользователя: {entry[0]},\nШаг: {entry[1]},\nПоказан: {'Да' if entry[2]==1 else 'нет'},\nПройден: {'Да' if entry[2]==1 else 'нет'},\n'{entry[4]}'\n---------------\n"
+            f"ID Пользователя: <a href='tg://user?id={entry[0]}'>{entry[0]}</a>,\nШаг: {entry[1]},\nПоказан: {'Да' if entry[2]==1 else 'нет'},\nПройден: {'Да' if entry[2]==1 else 'нет'},\n'{entry[4]}'\n---------------\n"
         )
     return progress_info
 
@@ -72,16 +72,8 @@ async def users_info(call: CallbackQuery):
         await call.answer("У вас нет прав доступа!", show_alert=True)
         return
     
-    cursor.execute("SELECT user_id FROM users")
-    users = cursor.fetchall()
-    
-    if users:
-        user_info = ""
-        for user in users:
-            user_info += await get_user_info() + "\n\n"
-        await call.message.answer(await get_user_info())
-    else:
-        await call.message.answer("Пользователей нет в базе.")
+    user_info = await get_user_info()
+    await call.message.answer(user_info, parse_mode='HTML')
 
 @dp.callback_query(lambda c: c.data == "project_info")
 async def project_info(call: CallbackQuery):
@@ -90,7 +82,7 @@ async def project_info(call: CallbackQuery):
         return
     
     project_info_text = await get_project_info()
-    await call.message.answer(project_info_text)
+    await call.message.answer(project_info_text, parse_mode='HTML')
 
 def update_users_table():
     cursor.execute("PRAGMA table_info(users)")
