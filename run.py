@@ -12,6 +12,86 @@ dp = Dispatcher()
 conn = sqlite3.connect("analytics.db")
 cursor = conn.cursor()
 
+ADMINS_ID = [987609477]
+
+async def get_user_info():
+    cursor.execute("""
+        SELECT u.user_id, u.username, u.first_name, u.last_name, u.joined_at, u.current_step
+        FROM users u
+    """)
+    users = cursor.fetchall()
+
+    if not users:
+        return "Пользователей нет в базе."
+
+    user_info = "Содержимое таблицы users:\n"
+    for user in users:
+        user_info += (
+            f"ID Пользователя: {user[0]},\nЛогин: {user[1]},\nИмя: {user[2]},\nФамилия: {user[3]},\nПрисоединился: {user[4]},\nТекущий шаг: {user[5]}\n------------------\n"
+        )
+    return user_info
+
+async def user_info_clbck(id: int):
+    cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (id,))
+
+
+async def get_project_info():
+    cursor.execute("""
+        SELECT user_id, step, viewed, confirmed, timestamp
+        FROM progress
+    """)
+    progress = cursor.fetchall()
+
+    if not progress:
+        return "Нет данных в таблице progress."
+
+    progress_info = "Содержимое таблицы progress:\n"
+    for entry in progress:
+        progress_info += (
+            f"ID Пользователя: {entry[0]},\nШаг: {entry[1]},\nПоказан: {'Да' if entry[2]==1 else 'нет'},\nПройден: {'Да' if entry[2]==1 else 'нет'},\n'{entry[4]}'\n---------------\n"
+        )
+    return progress_info
+
+@dp.message(Command(commands=["admin"]))
+async def cmd_admin(message: Message):
+    if message.from_user.id not in ADMINS_ID:
+        await message.answer("У вас нет прав доступа!")
+        return
+
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Пользователи", callback_data="users_info")],
+        [InlineKeyboardButton(text="Таблица проекта", callback_data="project_info")]
+    ])
+    
+    await message.answer("Админ-панель:", reply_markup=markup)
+
+# Обработка нажатия кнопки для вывода информации о пользователях
+@dp.callback_query(lambda c: c.data == "users_info")
+async def users_info(call: CallbackQuery):
+    if call.from_user.id not in ADMINS_ID:
+        await call.answer("У вас нет прав доступа!", show_alert=True)
+        return
+    
+    cursor.execute("SELECT user_id FROM users")
+    users = cursor.fetchall()
+    
+    if users:
+        user_info = ""
+        for user in users:
+            user_info += await get_user_info() + "\n\n"
+        await call.message.answer(await get_user_info())
+    else:
+        await call.message.answer("Пользователей нет в базе.")
+
+@dp.callback_query(lambda c: c.data == "project_info")
+async def project_info(call: CallbackQuery):
+    if call.from_user.id not in ADMINS_ID:
+        await call.answer("У вас нет прав доступа!", show_alert=True)
+        return
+    
+    project_info_text = await get_project_info()
+    await call.message.answer(project_info_text)
+
 def update_users_table():
     cursor.execute("PRAGMA table_info(users)")
     columns = [column[1] for column in cursor.fetchall()]
