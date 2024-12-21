@@ -12,7 +12,7 @@ dp = Dispatcher()
 conn = sqlite3.connect("analytics.db")
 cursor = conn.cursor()
 
-ADMINS_ID = [987609477]
+ADMINS_ID = [987609477, 8175097513]
 
 async def get_user_info():
     cursor.execute("""
@@ -301,7 +301,7 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
 
             asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][0], delay=5))
             if (lesson["reminders"] and len(lesson["reminders"]) > 1):
-                asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][1], delay=10))
+                asyncio.create_task(send_reminder(user_id, action, lesson["reminders"][1], delay=30))
 
     elif type_ == "confirm":
         cursor.execute("""
@@ -371,7 +371,7 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
                 
 
 async def send_reminder(user_id: int, step: str, reminder_text: str, delay: int):
-    await asyncio.sleep(delay) 
+    await asyncio.sleep(delay * 60) 
     cursor.execute("""
     SELECT confirmed FROM progress WHERE user_id = ? AND step = ?
     """, (user_id, step))
