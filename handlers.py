@@ -13,11 +13,60 @@ async def cmd_admin(message: Message):
         return
 
     markup = InlineKeyboardMarkup(inline_keyboard=[ 
-        [InlineKeyboardButton(text="Пользователи", callback_data="users_info")], 
-        [InlineKeyboardButton(text="Таблица проекта", callback_data="project_info")] 
+        [InlineKeyboardButton(text="Поиск по пользователю", callback_data="request_user_id")]
     ])
 
     await message.answer("Админ-панель:", reply_markup=markup)
+
+async def request_user_id(call: CallbackQuery):
+    if call.from_user.id not in ADMINS_ID:
+        await call.answer("У вас нет прав доступа!", show_alert=True)
+        return
+
+    await call.message.answer("Пожалуйста, введите ID пользователя для получения информации:")
+    await call.answer()
+
+async def get_user_by_id(message: Message):
+    user_id = int(message.text)
+
+    cursor.execute("""
+        SELECT username, first_name, last_name, joined_at, current_step
+        FROM users
+        WHERE user_id = ?
+    """, (user_id,))
+    user_info = cursor.fetchone()
+
+    if user_info:
+        user_details = (
+            f"ID: {user_id}\n"
+            f"Логин: {user_info[0]}\n"
+            f"Имя: {user_info[1]}\n"
+            f"Фамилия: {user_info[2]}\n"
+            f"Дата регистрации: {user_info[3]}\n"
+            f"Текущий шаг: {user_info[4]}\n"
+        )
+    else:
+        user_details = f"Пользователь с ID {user_id} не найден."
+
+    cursor.execute("""
+        SELECT step, viewed, confirmed, timestamp
+        FROM progress
+        WHERE user_id = ?
+    """, (user_id,))
+    progress = cursor.fetchall()
+
+    if progress:
+        progress_details = "Прогресс пользователя:\n"
+        for entry in progress:
+            progress_details += (
+                f"Шаг: {entry[0]}, Пройден: {'Да' if entry[2] else 'Нет'}, "
+                f"Просмотрен: {'Да' if entry[1] else 'Нет'}, Время: {entry[3]}\n"
+            )
+    else:
+        progress_details = "Прогресс не найден."
+
+    await message.answer(user_details)
+    await message.answer(progress_details)
 
 async def users_info(call: CallbackQuery):
     if call.from_user.id not in ADMINS_ID:
