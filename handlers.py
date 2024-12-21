@@ -13,10 +13,125 @@ async def cmd_admin(message: Message):
         return
 
     markup = InlineKeyboardMarkup(inline_keyboard=[ 
-        [InlineKeyboardButton(text="Поиск по пользователю", callback_data="request_user_id")]
+        [InlineKeyboardButton(text="Поиск по пользователю", callback_data="search_by_user")]
     ])
 
     await message.answer("Админ-панель:", reply_markup=markup)
+
+async def search_by_user(call: CallbackQuery):
+    if call.from_user.id not in ADMINS_ID:
+        await call.answer("У вас нет прав доступа!", show_alert=True)
+        return
+
+    markup = InlineKeyboardMarkup(inline_keyboard=[ 
+        [InlineKeyboardButton(text="Поиск по ID", callback_data="search_by_id")],
+        [InlineKeyboardButton(text="Поиск по никнейму", callback_data="search_by_username")]
+    ])
+    
+    await call.message.answer("Выберите способ поиска пользователя:", reply_markup=markup)
+    await call.answer()
+
+async def search_by_id(call: CallbackQuery):
+    if call.from_user.id not in ADMINS_ID:
+        await call.answer("У вас нет прав доступа!", show_alert=True)
+        return
+
+    await call.message.answer("Пожалуйста, введите ID пользователя для получения информации:")
+    await call.answer()
+
+async def search_by_username(call: CallbackQuery):
+    if call.from_user.id not in ADMINS_ID:
+        await call.answer("У вас нет прав доступа!", show_alert=True)
+        return
+
+    await call.message.answer("Пожалуйста, введите никнейм пользователя для получения информации (@exmp):")
+    await call.answer()
+
+async def get_user_by_id(message: Message):
+    user_id = int(message.text)
+
+    cursor.execute("""
+        SELECT username, first_name, last_name, joined_at, current_step
+        FROM users
+        WHERE user_id = ?
+    """, (user_id,))
+    user_info = cursor.fetchone()
+
+    if user_info:
+        user_details = (
+            f"ID: {user_id}\n"
+            f"Логин: {user_info[0]}\n"
+            f"Имя: {user_info[1]}\n"
+            f"Фамилия: {user_info[2]}\n"
+            f"Дата регистрации: {user_info[3]}\n"
+            f"Текущий шаг: {user_info[4]}\n"
+        )
+    else:
+        user_details = f"Пользователь с ID {user_id} не найден."
+
+    cursor.execute("""
+        SELECT step, viewed, confirmed, timestamp
+        FROM progress
+        WHERE user_id = ?
+    """, (user_id,))
+    progress = cursor.fetchall()
+
+    if progress:
+        progress_details = "Прогресс пользователя:\n"
+        for entry in progress:
+            progress_details += (
+                f"Шаг: {entry[0]}, Пройден: {'Да' if entry[2] else 'Нет'}, "
+                f"Просмотрен: {'Да' if entry[1] else 'Нет'}, Время: {entry[3]}\n"
+            )
+    else:
+        progress_details = "Прогресс не найден."
+
+    await message.answer(user_details)
+    await message.answer(progress_details)
+
+async def get_user_by_username(message: Message):
+    username = message.text.strip() 
+    username = username.replace('@', '')
+
+    cursor.execute("""
+        SELECT user_id, first_name, last_name, joined_at, current_step
+        FROM users
+        WHERE username = ?
+    """, (username,))
+    user_info = cursor.fetchone()
+
+    if user_info:
+        user_details = (
+            f"ID: {user_info[0]}\n"
+            f"Логин: {username}\n"
+            f"Имя: {user_info[1]}\n"
+            f"Фамилия: {user_info[2]}\n"
+            f"Дата регистрации: {user_info[3]}\n"
+            f"Текущий шаг: {user_info[4]}\n"
+        )
+
+        cursor.execute("""
+            SELECT step, viewed, confirmed, timestamp
+            FROM progress
+            WHERE user_id = ?
+        """, (user_info[0],))
+        progress = cursor.fetchall()
+
+        if progress:
+            progress_details = "Прогресс пользователя:\n"
+            for entry in progress:
+                progress_details += (
+                    f"Шаг: {entry[0]}, Пройден: {'Да' if entry[2] else 'Нет'}, "
+                    f"Просмотрен: {'Да' if entry[1] else 'Нет'}, Время: {entry[3]}\n"
+                )
+        else:
+            progress_details = "Прогресс не найден."
+        
+        await message.answer(user_details)
+        await message.answer(progress_details)
+    else:
+        await message.answer(f"Пользователь с никнеймом {username} не найден.")
+
 
 async def request_user_id(call: CallbackQuery):
     if call.from_user.id not in ADMINS_ID:
