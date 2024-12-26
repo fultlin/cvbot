@@ -4,7 +4,7 @@ from db import cursor, conn
 from aiogram import Bot
 
 async def send_reminder(bot: Bot, user_id: int, step: str, reminder_text: str, delay: int):
-    logging.warning(f"Создано напоминание для пользователя {user_id}")
+    logging.info(f"Создано напоминание для пользователя {user_id}")
     await asyncio.sleep(delay * 60)
     cursor.execute("""
     SELECT confirmed FROM progress WHERE user_id = ? AND step = ?

@@ -26,7 +26,7 @@ async def cmd_admin(message: Message):
     ])
 
     await message.answer("Админ-панель:", reply_markup=markup)
-    logging.warning(f"Пользователь {message.from_user.id} открыл админ-панель")
+    logging.info(f"Пользователь {message.from_user.id} открыл админ-панель")
 
 
 async def search_by_user(call: CallbackQuery):
@@ -42,7 +42,7 @@ async def search_by_user(call: CallbackQuery):
     
     await call.message.answer("Выберите способ поиска пользователя:", reply_markup=markup)
     await call.answer()
-    logging.warning(f"{call.from_user.id} выбрал способ поиска пользователя")
+    logging.info(f"{call.from_user.id} выбрал способ поиска пользователя")
 
 
 async def search_by_id(call: CallbackQuery):
@@ -52,7 +52,7 @@ async def search_by_id(call: CallbackQuery):
 
     await call.message.answer("Пожалуйста, введите ID пользователя для получения информации:")
     await call.answer()
-    logging.warning(f"Пользователь {call.from_user.id} вводит ID пользователя")
+    logging.info(f"Пользователь {call.from_user.id} вводит ID пользователя")
 
 async def search_by_username(call: CallbackQuery):
     if call.from_user.id not in ADMINS_ID:
@@ -61,7 +61,7 @@ async def search_by_username(call: CallbackQuery):
 
     await call.message.answer("Пожалуйста, введите никнейм пользователя для получения информации (@exmp):")
     await call.answer()
-    logging.warning(f"Пользователь {call.from_user.id} вводит никнейм пользователя")
+    logging.info(f"Пользователь {call.from_user.id} вводит никнейм пользователя")
 
 
 async def get_user_by_id(message: Message):
@@ -105,7 +105,7 @@ async def get_user_by_id(message: Message):
 
     await message.answer(user_details)
     await message.answer(progress_details)
-    logging.warning(f"Выведена информация для пользователя с ID: {user_id}")
+    logging.info(f"Выведена информация для пользователя с ID: {user_id}")
 
 
 async def get_user_by_username(message: Message):
@@ -162,7 +162,7 @@ async def request_user_id(call: CallbackQuery):
 
     await call.message.answer("Пожалуйста, введите ID пользователя для получения информации:")
     await call.answer()
-    logging.warning(f"Пользователь {call.from_user.id} ввёл ID пользователя")
+    logging.info(f"Пользователь {call.from_user.id} ввёл ID пользователя")
 
 
 async def get_user_by_id(message: Message):
@@ -206,7 +206,7 @@ async def get_user_by_id(message: Message):
 
     await message.answer(user_details)
     await message.answer(progress_details)
-    logging.warning(f"Выведена информация для пользователя: {user_id}")
+    logging.info(f"Выведена информация для пользователя: {user_id}")
 
 async def users_info(call: CallbackQuery):
     if call.from_user.id not in ADMINS_ID:
@@ -240,7 +240,7 @@ async def cmd_start(message: Message, bot: Bot):
     ])
         
     await bot.send_photo(chat_id=message.chat.id, photo='https://ibb.org.ru/1/qNlgvm', caption=WELCOME_MESSAGE, reply_markup=markup)
-    logging.warning(f"Начало общения с пользователем: {user_id}. Отправлено приветственное сообщение")
+    logging.info(f"Начало общения с пользователем: {user_id}. Отправлено приветственное сообщение")
 
 
     asyncio.create_task(send_reminder(bot, user_id, 'start', REMIDNER, delay=5))
@@ -285,7 +285,7 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
                     caption=lesson["text"].format(name=name),
                     reply_markup=markup
                 )
-                logging.warning(f"Отправлен урок {lesson} для пользователя: {user_id}")
+                logging.info(f"Отправлен урок {lesson} для пользователя: {user_id}")
 
             except Exception as e:
                 print(f"Error sending photo: {e}")
@@ -311,13 +311,13 @@ async def callback_query_handler(call: CallbackQuery, callback_data: CourseCallb
             conn.commit()
 
         await call.answer("Спасибо, что подтвердили просмотр!", show_alert=True)
-        logging.warning(f"Пользователь: {user_id}, подтвердил просмотр урока {action}")
+        logging.info(f"Пользователь: {user_id}, подтвердил просмотр урока {action}")
 
         
         if action == "lesson_3":
             final_lesson = LESSONS["final"]
             await bot.send_photo(chat_id=call.message.chat.id, photo=final_lesson["photo"], caption=final_lesson["text"].format(name=name))
-            logging.warning(f"Для пользовател: {user_id} отправлен финальный урок")
+            logging.info(f"Для пользовател: {user_id} отправлен финальный урок")
 
         else:
             next_lesson = LESSONS[action].get("next")
